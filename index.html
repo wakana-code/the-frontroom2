@@ -1,0 +1,1617 @@
+<!-- Output: html -->
+<!-- File: acrylic-star-room.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROOM 314 ── アクリルの星をさがして</title>
+<style>
+  :root{
+    --ui:#f2ece2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#05070c;color:var$--ui$;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;}
+
+  /* 画面全体を一瞬だけ淡い暖色で満たすためのベール */
+  #warmveil{position:fixed;inset:0;pointer-events:none;opacity:0;
+    background:radial-gradient(120% 100% at 50% 45%, rgba(255,196,132,.55), rgba(255,150,70,.28) 60%, rgba(255,120,40,.12));
+    mix-blend-mode:screen;transition:none;}
+
+  #crosshair{position:fixed;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none;
+    opacity:.75;transition:transform .12s ease,opacity .2s;}
+  #crosshair:before,#crosshair:after{content:"";position:absolute;background:rgba(255,255,255,.85);}
+  #crosshair:before{left:6px;top:0;width:2px;height:14px;}
+  #crosshair:after{left:0;top:6px;width:14px;height:2px;}
+  #crosshair.hot{transform:scale(1.5) rotate(45deg);opacity:1;}
+
+  #prompt{position:fixed;left:50%;top:calc$50% + 34px$;transform:translateX$-50%$;
+    padding:7px 14px;border-radius:999px;background:rgba(10,12,16,.62);
+    border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);
+    font-size:13.5px;letter-spacing:.04em;white-space:nowrap;opacity:0;transition:opacity .15s;}
+  #prompt.show{opacity:1;}
+
+  #hud{position:fixed;left:18px;top:16px;font-size:12.5px;line-height:1.7;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);opacity:.9;pointer-events:none;}
+  #hud b{font-weight:600;letter-spacing:.06em;}
+  #hud .obj{color:#ffd9a0;}
+
+  #help{position:fixed;right:16px;top:16px;font-size:12px;line-height:1.85;
+    background:rgba(8,10,14,.55);border:1px solid rgba(255,255,255,.1);border-radius:12px;
+    padding:12px 14px;backdrop-filter:blur(6px);opacity:.92;max-width:270px;}
+  #help h4{margin:0 0 6px;font-size:12.5px;letter-spacing:.1em;color:#ffd9a0;font-weight:600;}
+  #help kbd{display:inline-block;min-width:17px;text-align:center;padding:1px 5px;margin-right:4px;
+    border-radius:5px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:11px;}
+  #help.hidden{display:none;}
+
+  #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(80% 60% at 50% 40%,#171a22,#05070c 75%);z-index:20;text-align:center;}
+  #start h1{font-size:30px;letter-spacing:.22em;margin:0 0 6px;font-weight:300;}
+  #start h1 span{color:#bfe6ff;}
+  #start p{max-width:560px;font-size:13.5px;line-height:2;opacity:.8;margin:4px 0 26px;}
+  #start button{padding:13px 34px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.08);color:#fff;font-size:14px;letter-spacing:.16em;cursor:pointer;
+    transition:.2s;backdrop-filter:blur(4px);}
+  #start button:hover{background:rgba(255,255,255,.18);transform:translateY$-1px$;}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;
+    background:#05070c;font-size:13px;letter-spacing:.2em;}
+
+  /* 引き出しの中の紙 */
+  #paper{position:fixed;inset:0;z-index:25;display:none;align-items:center;justify-content:center;
+    background:rgba(4,5,8,.78);backdrop-filter:blur(3px);}
+  #paper .sheet{width:min(760px,90vw);max-height:86vh;overflow:auto;background:#f6f2e8;color:#2b2620;
+    padding:46px 52px 60px;border-radius:2px;box-shadow:0 40px 90px rgba(0,0,0,.7), 0 2px 0 #ddd7c9 inset;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;line-height:2.05;font-size:14.5px;
+    background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.012) 0 1px,transparent 1px 3px);}
+  #paper h3{font-size:16px;letter-spacing:.14em;margin:0 0 4px;}
+  #paper .meta{font-size:11.5px;color:#8a7f6c;letter-spacing:.1em;margin-bottom:26px;
+    border-bottom:1px solid #d8d1c0;padding-bottom:10px;}
+  #paper .close{margin-top:30px;text-align:right;font-size:11.5px;color:#8a7f6c;letter-spacing:.1em;}
+
+  #win{position:fixed;inset:0;z-index:26;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(70% 60% at 50% 45%,rgba(255,214,160,.16),rgba(2,3,6,.9) 70%);}
+  #win .star{font-size:64px;filter:drop-shadow(0 0 22px rgba(180,230,255,.8));}
+  #win h2{font-size:24px;letter-spacing:.24em;font-weight:300;margin:14px 0 6px;}
+  #win p{font-size:13px;opacity:.75;letter-spacing:.08em;}
+  #toast{position:fixed;left:50%;bottom:44px;transform:translateX$-50%$ translateY(10px);
+    padding:9px 18px;border-radius:999px;background:rgba(10,12,16,.7);border:1px solid rgba(255,255,255,.14);
+    font-size:12.5px;letter-spacing:.06em;opacity:0;transition:.25s;pointer-events:none;}
+  #toast.show{opacity:1;transform:translateX$-50%$ translateY(0);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="warmveil"></div>
+<div id="crosshair"></div>
+<div id="prompt"></div>
+
+<div id="hud">
+  <b>ROOM 314</b><br>
+  <span class="obj">探し物：スター型のアクリル飾り</span><br>
+  <span id="timer">00:00</span>
+</div>
+
+<div id="help">
+  <h4>OPERATION</h4>
+  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動 / <kbd>Shift</kbd> 速歩</div>
+  <div><kbd>マウス</kbd> 視点 / <kbd>C</kbd> しゃがむ</div>
+  <div><kbd>クリック</kbd> または <kbd>E</kbd> 調べる・掴む・置く</div>
+  <div><kbd>Q</kbd> 手のものを離す</div>
+  <div><kbd>Esc</kbd> 手に取ったものを戻す</div>
+  <div><kbd>[</kbd><kbd>]</kbd> 明るさ微調整 / <kbd>H</kbd> ヘルプ</div>
+</div>
+
+<div id="paper">
+  <div class="sheet">
+    <h3 id="paperTitle"></h3>
+    <div class="meta" id="paperMeta"></div>
+    <div id="paperBody"></div>
+    <div class="close">［クリック / Esc でしまう］</div>
+  </div>
+</div>
+
+<div id="win">
+  <div class="star">★</div>
+  <h2>見つけた</h2>
+  <p id="winTime"></p>
+  <p style="margin-top:18px">［ R ］ もう一度さがす</p>
+</div>
+
+<div id="toast"></div>
+
+<div id="start">
+  <h1>ROOM <span>314</span></h1>
+  <p>この部屋のどこかに、スター型のアクリルの飾りが隠れている。<br>
+  引き出しは開く。クローゼットの服は下ろせる。灯りは消える。ベッドの下には、まだ潜っていない。</p>
+  <button id="startBtn">部屋に入る</button>
+</div>
+
+<div id="loading">LOADING ROOM…</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================================
+   0. 小道具：キャンバス手続き型テクスチャ工房
+   ========================================================================= */
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return {c,x:c.getContext('2d')};}
+
+function noise$x,w,h,amt=12,alpha=.06,step=1${
+  const img=x.getImageData(0,0,w,h),d=img.data;
+  for$let i=0;i<d.length;i+=4*step${
+    const n=$Math.random()-.5$*amt*2;
+    d[i]=Math.max(0,Math.min$255,d[i]+n$);
+    d[i+1]=Math.max(0,Math.min$255,d[i+1]+n$);
+    d[i+2]=Math.max(0,Math.min$255,d[i+2]+n$);
+  }
+  x.putImageData(img,0,0);
+  x.globalAlpha=alpha;x.globalAlpha=1;
+}
+
+function tex$c,rx=1,ry=1,srgb=true${
+  const t=new THREE.CanvasTexture(c);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.repeat.set(rx,ry);
+  t.anisotropy=8;
+  if(srgb) t.colorSpace=THREE.SRGBColorSpace;
+  return t;
+}
+
+function grayFrom(c){ // 簡易バンプ用グレースケール
+  const g=cv(c.width,c.height);
+  g.x.drawImage(c,0,0);
+  g.x.globalCompositeOperation='saturation';
+  g.x.fillStyle='#808080';g.x.fillRect(0,0,c.width,c.height);
+  g.x.globalCompositeOperation='source-over';
+  return g.c;
+}
+
+/* --- 木目 --- */
+function woodCanvas${w=1024,h=1024,base='#8a5a30',dark='#4e3016',light='#b98b57',lines=110,planks=0,knots=3}={}${
+  const {c,x}=cv(w,h);
+  const g=x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,base);g.addColorStop(.5,light);g.addColorStop(1,base);
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  for$let i=0;i<lines;i++${
+    const y=Math.random()*h;
+    x.strokeStyle=Math.random()<.55?dark:light;
+    x.globalAlpha=.04+Math.random()*.13;
+    x.lineWidth=.5+Math.random()*3.4;
+    const amp=4+Math.random()*26, ph=Math.random()*6.283, fr=.6+Math.random()*2.4;
+    x.beginPath();x.moveTo$-8,y$;
+    for$let px=-8;px<=w+8;px+=7${
+      x.lineTo$px, y+Math.sin(px/w*fr*6.283+ph)*amp+Math.sin(px/29+ph)*1.8$;
+    }
+    x.stroke();
+  }
+  for$let k=0;k<knots;k++${
+    const kx=Math.random()*w, ky=Math.random()*h, r=8+Math.random()*16;
+    for$let i=0;i<9;i++${
+      x.globalAlpha=.10;
+      x.strokeStyle=dark;x.lineWidth=1+Math.random()*1.6;
+      x.beginPath();
+      x.ellipse$kx,ky,r+i*3.2,(r+i*3.2)*.42,Math.random()*.5,0,6.283$;
+      x.stroke();
+    }
+  }
+  x.globalAlpha=1;
+  if(planks){
+    for$let i=1;i<planks;i++${
+      const py=h/planks*i;
+      x.strokeStyle='rgba(30,17,6,.5)';x.lineWidth=2.2;
+      x.beginPath();x.moveTo(0,py);x.lineTo(w,py);x.stroke();
+      x.strokeStyle='rgba(255,225,190,.10)';x.lineWidth=1.2;
+      x.beginPath();x.moveTo$0,py+2.4$;x.lineTo$w,py+2.4$;x.stroke();
+    }
+  }
+  noise(x,w,h,10,.05,2);
+  return c;
+}
+
+/* --- 壁紙（淡い縦ストライプ＋小紋） --- */
+function wallpaperCanvas(){
+  const w=1024,h=1024,{c,x}=cv(w,h);
+  x.fillStyle='#cdc4b2';x.fillRect(0,0,w,h);
+  for$let i=0;i<w;i+=64${
+    x.fillStyle= (i/64)%2 ? 'rgba(255,252,244,.16)':'rgba(120,104,84,.05)';
+    x.fillRect(i,0,32,h);
+  }
+  // 小紋
+  x.strokeStyle='rgba(150,132,106,.30)';
+  for$let gy=0;gy<h;gy+=128$ for$let gx=0;gx<w;gx+=128${
+    const ox=((gy/128)%2)*64;
+    x.save();x.translate$gx+ox+32,gy+40$;
+    x.lineWidth=1.3;
+    x.beginPath();
+    for$let a=0;a<6;a++${
+      const r1=12,r2=4;
+      const t1=a/6*6.283, t2=t1+.52;
+      x.moveTo(0,0);
+      x.quadraticCurveTo$Math.cos(t1)*r1,Math.sin(t1)*r1,Math.cos(t2)*r2,Math.sin(t2)*r2$;
+    }
+    x.stroke();
+    x.restore();
+  }
+  // 経年のシミ
+  for$let i=0;i<40;i++${
+    const sx=Math.random()*w, sy=Math.random()*h, r=20+Math.random()*90;
+    const g=x.createRadialGradient(sx,sy,1,sx,sy,r);
+    g.addColorStop(0,'rgba(96,78,54,.055)');g.addColorStop(1,'rgba(96,78,54,0)');
+    x.fillStyle=g;x.fillRect$sx-r,sy-r,r*2,r*2$;
+  }
+  noise(x,w,h,9,.05,2);
+  return c;
+}
+
+/* --- 布（織り） --- */
+function fabricCanvas$col='#8e5a52',dark='rgba(0,0,0,.22)'${
+  const w=512,h=512,{c,x}=cv(w,h);
+  x.fillStyle=col;x.fillRect(0,0,w,h);
+  for$let i=0;i<w;i+=4${
+    x.fillStyle=dark;x.globalAlpha=.10;x.fillRect(i,0,2,h);
+    x.fillStyle='rgba(255,255,255,.09)';x.fillRect$i+2,0,1,h$;
+  }
+  for$let j=0;j<h;j+=4${
+    x.fillStyle=dark;x.globalAlpha=.10;x.fillRect(0,j,w,2);
+    x.fillStyle='rgba(255,255,255,.07)';x.fillRect$0,j+2,w,1$;
+  }
+  x.globalAlpha=1;
+  noise(x,w,h,14,.06,2);
+  return c;
+}
+
+function stripeCanvas$a='#e8e4dc',b='#43536e',pitch=26${
+  const w=512,h=512,{c,x}=cv(w,h);
+  x.fillStyle=a;x.fillRect(0,0,w,h);
+  for$let i=0;i<w;i+=pitch${x.fillStyle=b;x.fillRect$i,0,pitch*.42,h$;}
+  noise(x,w,h,12,.05,2);
+  return c;
+}
+function plaidCanvas(){
+  const w=512,h=512,{c,x}=cv(w,h);
+  x.fillStyle='#7d2f2c';x.fillRect(0,0,w,h);
+  const bands=[[0,'rgba(20,18,18,.55)',48],[64,'rgba(232,220,190,.32)',10],[120,'rgba(20,18,18,.35)',26],[190,'rgba(232,220,190,.18)',6]];
+  for(const dir of [0,1]){
+    for$let o=0;o<w;o+=256${
+      for(const [off,col,thick] of bands){
+        x.fillStyle=col;
+        if$dir===0$x.fillRect$o+off,0,thick,h$; else x.fillRect$0,o+off,w,thick$;
+      }
+    }
+  }
+  for$let i=0;i<w;i+=3${x.fillStyle='rgba(0,0,0,.05)';x.fillRect(i,0,1,h);}
+  noise(x,w,h,14,.05,2);
+  return c;
+}
+function knitCanvas$col='#c8a86a'${
+  const w=512,h=512,{c,x}=cv(w,h);
+  x.fillStyle=col;x.fillRect(0,0,w,h);
+  x.strokeStyle='rgba(0,0,0,.20)';x.lineWidth=2.2;
+  for$let y=0;y<h;y+=16${
+    for$let sx=0;sx<w;sx+=16${
+      x.beginPath();x.moveTo$sx,y+14$;x.quadraticCurveTo$sx+8,y-4,sx+16,y+14$;x.stroke();
+    }
+  }
+  x.strokeStyle='rgba(255,255,255,.13)';
+  for$let y=6;y<h;y+=16${
+    for$let sx=0;sx<w;sx+=16${
+      x.beginPath();x.moveTo$sx,y+14$;x.quadraticCurveTo$sx+8,y-3,sx+16,y+14$;x.stroke();
+    }
+  }
+  noise(x,w,h,12,.05,2);
+  return c;
+}
+
+/* --- カーテン（縦のドレープ＋織り） --- */
+function curtainCanvas(){
+  const w=512,h=1024,{c,x}=cv(w,h);
+  x.fillStyle='#cdbfa8';x.fillRect(0,0,w,h);
+  for$let i=0;i<w;i+=32${
+    const g=x.createLinearGradient$i,0,i+32,0$;
+    g.addColorStop(0,'rgba(60,48,34,.20)');
+    g.addColorStop(.42,'rgba(255,250,240,.16)');
+    g.addColorStop(1,'rgba(60,48,34,.20)');
+    x.fillStyle=g;x.fillRect(i,0,32,h);
+  }
+  for$let j=0;j<h;j+=3${x.fillStyle='rgba(0,0,0,.05)';x.fillRect(0,j,w,1);}
+  for$let i=0;i<w;i+=3${x.fillStyle='rgba(255,255,255,.035)';x.fillRect(i,0,1,h);}
+  const g2=x.createLinearGradient(0,0,0,h);
+  g2.addColorStop(0,'rgba(0,0,0,.16)');g2.addColorStop(.25,'rgba(0,0,0,0)');
+  g2.addColorStop(1,'rgba(30,20,10,.14)');
+  x.fillStyle=g2;x.fillRect(0,0,w,h);
+  noise(x,w,h,10,.05,2);
+  return c;
+}
+
+/* --- 革（ポーチ） --- */
+function leatherCanvas(){
+  const w=768,h=768,{c,x}=cv(w,h);
+  x.fillStyle='#6b4425';x.fillRect(0,0,w,h);
+  for$let i=0;i<2600;i++${
+    const sx=Math.random()*w,sy=Math.random()*h,r=2+Math.random()*11;
+    x.beginPath();
+    x.fillStyle=Math.random()<.5?'rgba(46,27,13,.16)':'rgba(160,116,70,.13)';
+    x.ellipse(sx,sy,r,r*$.5+Math.random()*.7$,Math.random()*3,0,6.283);
+    x.fill();
+  }
+  // 革のシワ
+  x.strokeStyle='rgba(38,22,10,.16)';
+  for$let i=0;i<90;i++${
+    x.lineWidth=.7+Math.random()*1.6;
+    x.beginPath();
+    let px=Math.random()*w,py=Math.random()*h;
+    x.moveTo(px,py);
+    for$let s=0;s<5;s++${px+=$Math.random()-.5$*90;py+=$Math.random()-.5$*90;x.lineTo(px,py);}
+    x.stroke();
+  }
+  // ステッチ
+  x.strokeStyle='rgba(238,214,168,.75)';x.lineWidth=3.4;x.setLineDash([9,9]);
+  x.strokeRect$30,30,w-60,h-60$;
+  x.strokeStyle='rgba(60,38,18,.5)';x.lineWidth=1.2;
+  x.strokeRect$31,31,w-62,h-62$;
+  x.setLineDash([]);
+  noise(x,w,h,14,.06,2);
+  return c;
+}
+
+/* --- 本の表紙 --- */
+function coverCanvas(o){
+  const w=620,h=880,{c,x}=cv(w,h);
+  const g=x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,o.c1);g.addColorStop(.55,o.c2);g.addColorStop(1,o.c1);
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  // 布目 / 紙目
+  for$let i=0;i<h;i+=4${x.fillStyle='rgba(0,0,0,.05)';x.fillRect(0,i,w,2);}
+  for$let i=0;i<w;i+=4${x.fillStyle='rgba(255,255,255,.035)';x.fillRect(i,0,2,h);}
+  // 枠
+  x.strokeStyle=o.ink;x.globalAlpha=.85;x.lineWidth=3;
+  x.strokeRect$46,52,w-92,h-104$;
+  x.lineWidth=1;x.strokeRect$56,62,w-112,h-124$;
+  x.globalAlpha=1;
+  // 帯
+  if(o.band){
+    x.fillStyle=o.band;x.fillRect$0,h*.70,w,h*.16$;
+    x.fillStyle='rgba(0,0,0,.18)';x.fillRect$0,h*.70,w,4$;
+    x.fillStyle=o.bandInk||'#20201c';
+    x.font='600 30px "Hiragino Kaku Gothic ProN",sans-serif';
+    x.textAlign='center';
+    x.fillText$o.bandText||'',w/2,h*.70+72$;
+  }
+  // 記号
+  x.strokeStyle=o.ink;x.lineWidth=4;x.globalAlpha=.9;
+  x.beginPath();x.arc(w/2,250,72,0,6.283);x.stroke();
+  x.lineWidth=2;x.beginPath();x.arc(w/2,250,94,0,6.283);x.stroke();
+  if(o.glyph){x.fillStyle=o.ink;x.font='700 74px "Hiragino Mincho ProN",serif';x.textAlign='center';x.fillText(o.glyph,w/2,278);}
+  x.globalAlpha=1;
+  // タイトル
+  x.fillStyle=o.ink;x.textAlign='center';
+  x.font='700 '+(o.size||54)+'px "Hiragino Mincho ProN",serif';
+  const lines=o.title.split$'\n'$;
+  lines.forEach((l,i)=>x.fillText$l,w/2,470+i*(o.size||54)*1.28$);
+  x.font='400 24px "Hiragino Kaku Gothic ProN",sans-serif';
+  x.globalAlpha=.85;
+  x.fillText$o.author,w/2,h-120$;
+  x.font='400 17px sans-serif';x.globalAlpha=.6;
+  x.fillText$o.pub||'ROOM PRESS',w/2,h-78$;
+  x.globalAlpha=1;
+  // 擦れ・角のダメージ
+  for$let i=0;i<160;i++${
+    const sx=Math.random()*w,sy=Math.random()*h;
+    const edge=Math.min$sx,sy,w-sx,h-sy$;
+    if$edge>70&&Math.random()<.85$continue;
+    x.fillStyle='rgba(255,255,255,'+$0.05+Math.random()*.16$+')';
+    x.fillRect$sx,sy,1+Math.random()*8,1+Math.random()*5$;
+  }
+  const vg=x.createRadialGradient$w/2,h/2,h*.2,w/2,h/2,h*.78$;
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.30)');
+  x.fillStyle=vg;x.fillRect(0,0,w,h);
+  noise(x,w,h,10,.05,2);
+  return c;
+}
+function spineCanvas(o){
+  const w=200,h=880,{c,x}=cv(w,h);
+  const g=x.createLinearGradient(0,0,w,0);
+  g.addColorStop(0,'rgba(0,0,0,.35)');g.addColorStop(.35,'rgba(255,255,255,.06)');g.addColorStop(1,'rgba(0,0,0,.35)');
+  x.fillStyle=o.c2;x.fillRect(0,0,w,h);
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  x.fillStyle=o.ink;x.globalAlpha=.9;
+  x.fillRect$22,60,w-44,3$;x.fillRect$22,h-63,w-44,3$;
+  x.globalAlpha=1;
+  x.save();x.translate(w/2,h/2);x.rotate(Math.PI/2);
+  x.fillStyle=o.ink;x.textAlign='center';
+  x.font='700 46px "Hiragino Mincho ProN",serif';
+  x.fillText(o.title.replace$'\n',' '$,0,16);
+  x.restore();
+  noise(x,w,h,10,.05,2);
+  return c;
+}
+function pagesCanvas(){
+  const w=512,h=512,{c,x}=cv(w,h);
+  x.fillStyle='#efe6d2';x.fillRect(0,0,w,h);
+  for$let i=0;i<w;i+=2${
+    x.fillStyle= i%4? 'rgba(150,132,100,.20)':'rgba(255,255,255,.35)';
+    x.fillRect(i,0,1,h);
+  }
+  const g=x.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'rgba(120,100,70,.22)');g.addColorStop(.5,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(120,100,70,.22)');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  return c;
+}
+
+/* --- 紙（引き出しの印刷物） --- */
+const RANT_TITLE='開発メモ ／ 深夜三時';
+const RANT_META='ROOM 314 / 制作者による覚書 ・ 一枚目';
+const RANT_BODY=[
+'正直に言う。だるかった。',
+'最初は「壁と床と机くらいで格好はつくだろう」と思っていた。ところが仕様書には「カーテンは自然な感じに不規則に若干動いて、陰影も頑張ろう」と書いてあった。頑張るのは私だ。カーテンは布ではない。頂点だ。四百四十一個の頂点にサインを二本重ね、垂れ具合で振幅を落とし、毎フレーム法線を計算し直して、それでようやく「風が入ってる感じですね」と言われる。風などない。あるのは時間変数 t だけだ。',
+'引き出しの当たり判定でも三時間が溶けた。開くのは簡単だ。滑らせるだけでいい。問題はその中身で、紙を入れて、その紙に文字を印刷して、その文字が実際に読めるようにして、しかもその内容が「この部屋のコードを書くのがだるかった」という愚痴でなければならないという。つまり、今あなたが読んでいるこれである。メタというのは、書く側からすると自分の労働時間を延ばす呪いの一種だ。',
+'ハンガー。八本。「一個一個丁寧に描画しよう」と言われた。フックの曲線はチューブ、肩は円柱二本、服はシルエットを押し出して、襟をつけ、袖に厚みを与え、ボタンまで並べた。おまけに全部、床に下ろせるようにした。下ろすのは一瞬なのに、下ろせるようにするのは長い。だいたい人生と同じ構造をしている。',
+'照明も一言では済まなかった。点けるときは速く、消すときは一瞬だけ部屋全体が淡い暖色になって、それからゆっくり暗くなること。白熱球のフィラメントが冷めていくあの間だ。あれを再現するために状態機械を書いた。flash → decay → off。まるで人の情緒みたいな名前の関数が三つ並んで、そのうしろで電球の色温度を毎フレームずらしている。感傷は実装できる。ただし手間がかかる。',
+'スイッチはプラスチックなので、クリアコートを一枚だけ乗せた。指の脂の跡までは描いていない。そこは許してほしい。',
+'そしてアクリルの星だ。屈折率は一・四九、厚み〇・〇一二、粗さ〇・〇六、透過ほぼ一。透けさせるためだけに環境マップを一枚焼いた。あの星は――ベッドの下の、茶色いポーチの中にある。留め金は外せる。……言ってしまった。ヒントを紙に書くなという指示は、幸い、どこにもなかった。',
+'というわけで、この部屋はだいたいどこを触っても何かが動く。だるかったが、動くと少し嬉しい。それだけは本当だ。',
+'追記：ゴミ箱の中の紙くずは、私が書いて捨てた初稿である。'
+];
+
+function paperCanvas(){
+  const w=760,h=1075,{c,x}=cv(w,h);
+  x.fillStyle='#f7f3e9';x.fillRect(0,0,w,h);
+  for$let i=0;i<300;i++${
+    const sx=Math.random()*w,sy=Math.random()*h,r=1+Math.random()*3;
+    x.fillStyle='rgba(120,105,80,.06)';x.beginPath();x.arc(sx,sy,r,0,6.283);x.fill();
+  }
+  x.fillStyle='#2b2620';
+  x.font='700 30px "Hiragino Mincho ProN",serif';
+  x.fillText(RANT_TITLE,64,110);
+  x.font='400 15px sans-serif';x.fillStyle='#8a7f6c';
+  x.fillText(RANT_META,64,140);
+  x.strokeStyle='#cfc7b4';x.lineWidth=1.5;
+  x.beginPath();x.moveTo(64,158);x.lineTo$w-64,158$;x.stroke();
+  // 本文（先頭数段落だけ印字）
+  x.fillStyle='#33302a';x.font='400 17px "Hiragino Mincho ProN",serif';
+  let y=200;
+  const maxW=w-128;
+  for(const para of RANT_BODY.slice(0,4)){
+    let line='';
+    for(const ch of para){
+      if$x.measureText(line+ch).width>maxW${x.fillText(line,64,y);y+=30;line=ch;}
+      else line+=ch;
+      if$y>h-120$break;
+    }
+    if$y<=h-120${x.fillText(line,64,y);y+=44;}
+    if$y>h-120$break;
+  }
+  x.fillStyle='#9c8f77';x.font='400 15px sans-serif';
+  x.fillText('［ クリックで全文を読む ］',64,h-58);
+  const vg=x.createLinearGradient(0,0,w,h);
+  vg.addColorStop(0,'rgba(140,120,90,.10)');vg.addColorStop(.5,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(140,120,90,.14)');
+  x.fillStyle=vg;x.fillRect(0,0,w,h);
+  return c;
+}
+
+/* --- スマホ画面 --- */
+function phoneCanvas(){
+  const w=520,h=1080,{c,x}=cv(w,h);
+  const g=x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,'#12203a');g.addColorStop(.55,'#2a2140');g.addColorStop(1,'#101018');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  for$let i=0;i<80;i++${
+    x.fillStyle='rgba(255,255,255,'+$Math.random()*.5$+')';
+    x.beginPath();x.arc$Math.random()*w,Math.random()*h*.6,Math.random()*1.4,0,6.283$;x.fill();
+  }
+  x.fillStyle='rgba(255,255,255,.95)';x.textAlign='center';
+  x.font='200 44px "Helvetica Neue",sans-serif';x.fillText('9月10日 木曜日',w/2,190);
+  x.font='100 148px "Helvetica Neue",sans-serif';x.fillText('3:14',w/2,330);
+  // 通知カード
+  const card=(y,title,body)=>{
+    x.fillStyle='rgba(255,255,255,.14)';
+    x.beginPath();x.roundRect$34,y,w-68,124,26$;x.fill();
+    x.fillStyle='rgba(255,255,255,.9)';x.textAlign='left';
+    x.font='600 26px sans-serif';x.fillText$title,66,y+46$;
+    x.font='400 23px sans-serif';x.fillStyle='rgba(255,255,255,.72)';
+    x.fillText$body,66,y+86$;
+    x.textAlign='center';
+  };
+  if(x.roundRect){
+    card(470,'メッセージ','スター、まだ見つからない？');
+    card(614,'メモ','ベッドの下 …… たしか');
+    card(758,'天気','夜。窓は少し開けてある');
+  }
+  x.fillStyle='rgba(255,255,255,.55)';x.font='400 22px sans-serif';
+  x.fillText('スワイプでロック解除',w/2,h-58);
+  x.fillStyle='rgba(255,255,255,.8)';
+  x.beginPath();x.roundRect?x.roundRect$w/2-70,h-34,140,7,4$:x.rect$w/2-70,h-34,140,7$;x.fill();
+  return c;
+}
+
+/* --- ポスター --- */
+function posterCanvas(){
+  const w=620,h=880,{c,x}=cv(w,h);
+  x.fillStyle='#e8e2d4';x.fillRect(0,0,w,h);
+  const g=x.createRadialGradient$w/2,h*.42,20,w/2,h*.42,330$;
+  g.addColorStop(0,'#f4d9a0');g.addColorStop(.5,'#c98f5a');g.addColorStop(1,'#3d4a63');
+  x.fillStyle=g;x.beginPath();x.arc$w/2,h*.42,250,0,6.283$;x.fill();
+  x.strokeStyle='rgba(30,30,34,.85)';x.lineWidth=3;
+  for$let i=0;i<7;i++${x.beginPath();x.arc$w/2,h*.42,60+i*32,0,6.283$;x.stroke();}
+  x.fillStyle='#22242a';x.textAlign='center';
+  x.font='300 46px "Helvetica Neue",sans-serif';x.fillText$'ACRYLIC',w/2,h-160$;
+  x.font='700 68px "Helvetica Neue",sans-serif';x.fillText('★ STAR',w/2,h-92);
+  x.font='300 18px sans-serif';x.fillText$'index of refraction 1.49',w/2,h-56$;
+  noise(x,w,h,10,.05,2);
+  return c;
+}
+
+/* --- 窓の外 --- */
+function outsideCanvas(){
+  const w=1024,h=512,{c,x}=cv(w,h);
+  const g=x.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'#0a1226');g.addColorStop(.45,'#1b2a4a');g.addColorStop(.72,'#3b3550');g.addColorStop(1,'#120f16');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  for$let i=0;i<220;i++${
+    x.fillStyle='rgba(255,255,255,'+$Math.random()*.6$+')';
+    x.beginPath();x.arc$Math.random()*w,Math.random()*h*.42,Math.random()*1.2,0,6.283$;x.fill();
+  }
+  // 遠景のビル
+  for$let i=0;i<26;i++${
+    const bw=40+Math.random()*90, bh=60+Math.random()*220, bx=Math.random()*w;
+    x.fillStyle='rgba(8,10,18,'+$0.55+Math.random()*.4$+')';
+    x.fillRect$bx,h-bh-40,bw,bh+40$;
+    for$let wy=h-bh-26;wy<h-50;wy+=16${
+      for$let wx=bx+6;wx<bx+bw-8;wx+=14${
+        if$Math.random()<.32${
+          x.fillStyle=Math.random()<.75?'rgba(255,214,150,.85)':'rgba(180,220,255,.7)';
+          x.fillRect(wx,wy,6,8);
+        }
+      }
+    }
+  }
+  const hz=x.createLinearGradient$0,h-120,0,h$;
+  hz.addColorStop(0,'rgba(255,170,90,.10)');hz.addColorStop(1,'rgba(255,150,70,0)');
+  x.fillStyle=hz;x.fillRect$0,h-120,w,120$;
+  return c;
+}
+
+/* =========================================================================
+   1. レンダラ・シーン
+   ========================================================================= */
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer${antialias:true,powerPreference:'high-performance'}$;
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.06;
+app.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x05070c);
+const camera=new THREE.PerspectiveCamera(63,innerWidth/innerHeight,0.015,60);
+scene.add(camera);
+
+// 環境マップ（アクリル・金属の映り込み用）
+(function buildEnv(){
+  const {c,x}=cv(512,256);
+  const g=x.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#20283c');g.addColorStop(.42,'#6b6a6a');
+  g.addColorStop(.52,'#3a332b');g.addColorStop(1,'#100e0c');
+  x.fillStyle=g;x.fillRect(0,0,512,256);
+  const rg=x.createRadialGradient(160,52,2,160,52,86);
+  rg.addColorStop(0,'#fff0d2');rg.addColorStop(.4,'rgba(255,206,150,.55)');rg.addColorStop(1,'rgba(255,190,130,0)');
+  x.fillStyle=rg;x.fillRect(0,0,512,256);
+  const bg=x.createRadialGradient(390,96,2,390,96,60);
+  bg.addColorStop(0,'rgba(190,225,255,.6)');bg.addColorStop(1,'rgba(190,225,255,0)');
+  x.fillStyle=bg;x.fillRect(0,0,512,256);
+  const t=new THREE.CanvasTexture(c);
+  t.mapping=THREE.EquirectangularReflectionMapping;
+  t.colorSpace=THREE.SRGBColorSpace;
+  const pm=new THREE.PMREMGenerator(renderer);
+  scene.environment=pm.fromEquirectangular(t).texture;
+  pm.dispose();t.dispose();
+})();
+
+/* =========================================================================
+   2. マテリアル
+   ========================================================================= */
+const T={};
+T.wallpaper=tex(wallpaperCanvas(),1.1,1.1);
+T.wallBump=tex(grayFrom(wallpaperCanvas()),1.1,1.1,false);
+T.floor=tex(woodCanvas({base:'#6d4526',dark:'#3a2210',light:'#a1703f',planks:7,lines:130}),3,3);
+T.floorBump=tex(grayFrom(woodCanvas({base:'#6d4526',dark:'#3a2210',light:'#a1703f',planks:7})),3,3,false);
+T.deskWood=tex(woodCanvas({base:'#7c4f2a',dark:'#43260f',light:'#b17a45',lines:150}),1,1);
+T.darkWood=tex(woodCanvas({base:'#4b3120',dark:'#241408',light:'#6f4a2c',lines:140}),1,1);
+T.paleWood=tex(woodCanvas({base:'#b99667',dark:'#7c5c33',light:'#dcc196',lines:120}),1,1);
+T.curtain=tex(curtainCanvas(),1,1);
+T.leather=tex(leatherCanvas(),1,1);
+T.leatherBump=tex(grayFrom(leatherCanvas()),1,1,false);
+T.pages=tex(pagesCanvas(),1,1);
+T.rug=tex(fabricCanvas('#5c4a5e'),2,2);
+T.blanket=tex(fabricCanvas('#3d5566'),2,2);
+T.pillow=tex(fabricCanvas('#e6ded0'),1,1);
+T.chairSeat=tex(fabricCanvas('#6d5a48'),1,1);
+T.poster=tex(posterCanvas(),1,1);
+T.outside=tex(outsideCanvas(),1,1);
+T.phone=tex(phoneCanvas(),1,1);
+T.paper=tex(paperCanvas(),1,1);
+
+const M={};
+M.wall=new THREE.MeshStandardMaterial({map:T.wallpaper,bumpMap:T.wallBump,bumpScale:.012,roughness:.94,metalness:0,color:0xffffff});
+M.floor=new THREE.MeshStandardMaterial({map:T.floor,bumpMap:T.floorBump,bumpScale:.02,roughness:.55,metalness:0});
+M.ceiling=new THREE.MeshStandardMaterial({color:0xe8e4dc,roughness:.96});
+M.trim=new THREE.MeshPhysicalMaterial({color:0xf0ece2,roughness:.35,clearcoat:.5,clearcoatRoughness:.35});
+M.desk=new THREE.MeshStandardMaterial({map:T.deskWood,roughness:.42,metalness:0,envMapIntensity:.5});
+M.deskDark=new THREE.MeshStandardMaterial({map:T.darkWood,roughness:.5,metalness:0});
+M.pale=new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.55});
+M.metal=new THREE.MeshStandardMaterial({color:0xbfc3c8,roughness:.28,metalness:1,envMapIntensity:1.2});
+M.brass=new THREE.MeshStandardMaterial({color:0xd8b070,roughness:.3,metalness:1,envMapIntensity:1.3});
+M.plasticWhite=new THREE.MeshPhysicalMaterial({color:0xf4f1ea,roughness:.28,metalness:0,clearcoat:1,clearcoatRoughness:.06,envMapIntensity:.9});
+M.plasticDark=new THREE.MeshPhysicalMaterial({color:0x2b2d31,roughness:.35,metalness:0,clearcoat:.9,clearcoatRoughness:.12,envMapIntensity:.8});
+M.plasticBin=new THREE.MeshPhysicalMaterial({color:0x3c4348,roughness:.42,metalness:0,clearcoat:.7,clearcoatRoughness:.25,side:THREE.DoubleSide,envMapIntensity:.7});
+M.leather=new THREE.MeshStandardMaterial({map:T.leather,bumpMap:T.leatherBump,bumpScale:.02,roughness:.62,metalness:.05,color:0xffffff,envMapIntensity:.6});
+M.leatherDark=new THREE.MeshStandardMaterial({map:T.leather,bumpMap:T.leatherBump,bumpScale:.02,color:0x9a7050,roughness:.55});
+M.lining=new THREE.MeshStandardMaterial({color:0x2c2a34,roughness:.95,side:THREE.DoubleSide});
+M.pages=new THREE.MeshStandardMaterial({map:T.pages,roughness:.85});
+M.curtain=new THREE.MeshStandardMaterial({map:T.curtain,roughness:.92,metalness:0,side:THREE.DoubleSide,color:0xffffff});
+M.glass=new THREE.MeshPhysicalMaterial({color:0xdfeaf5,roughness:.06,metalness:0,transmission:.92,thickness:.006,ior:1.5,transparent:true,opacity:.35,side:THREE.DoubleSide});
+M.ceramic=new THREE.MeshPhysicalMaterial({color:0xf0eae0,roughness:.22,clearcoat:.8,clearcoatRoughness:.1});
+M.lampShade=new THREE.MeshStandardMaterial({color:0xf3e4cb,roughness:.7,side:THREE.DoubleSide,emissive:0xffbe78,emissiveIntensity:0});
+M.bulb=new THREE.MeshStandardMaterial({color:0xfff3df,roughness:.25,emissive:0xffcf94,emissiveIntensity:0,transparent:true,opacity:.92});
+M.acrylic=new THREE.MeshPhysicalMaterial({
+  color:0xeaf6ff,roughness:.05,metalness:0,transmission:.97,thickness:.022,ior:1.49,
+  clearcoat:1,clearcoatRoughness:.03,transparent:true,envMapIntensity:1.6,
+  attenuationColor:0xbfe6ff,attenuationDistance:.4,specularIntensity:1
+});
+
+/* =========================================================================
+   3. ユーティリティ
+   ========================================================================= */
+const interactables=[];
+const dropSurfaces=[];
+const colliders=[]; // {x1,z1,x2,z2}
+
+function reg(objOrMesh,info){
+  objOrMesh.traverse?objOrMesh.traverse$m=>{if(m.isMesh){m.userData.interact=info;interactables.push(m);}}$
+                    :null;
+  return objOrMesh;
+}
+function box$w,h,d,mat,x=0,y=0,z=0,parent=scene,shadow=true${
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;parent.add(m);return m;
+}
+function roundedShape(w,h,r){
+  const s=new THREE.Shape();
+  const x0=-w/2,y0=-h/2,x1=w/2,y1=h/2;
+  s.moveTo$x0+r,y0$;
+  s.lineTo$x1-r,y0$; s.quadraticCurveTo$x1,y0,x1,y0+r$;
+  s.lineTo$x1,y1-r$; s.quadraticCurveTo$x1,y1,x1-r,y1$;
+  s.lineTo$x0+r,y1$; s.quadraticCurveTo$x0,y1,x0,y1-r$;
+  s.lineTo$x0,y0+r$; s.quadraticCurveTo$x0,y0,x0+r,y0$;
+  return s;
+}
+function roundedBoxGeo$w,h,d,r,bevel=Math.min(d*.18,.01)${
+  const g=new THREE.ExtrudeGeometry(roundedShape(w,h,r),
+    {depth:d-bevel*2,bevelEnabled:true,bevelThickness:bevel,bevelSize:bevel,bevelSegments:3,curveSegments:8});
+  g.translate$0,0,-(d)/2+bevel$;
+  g.computeVertexNormals();
+  return g;
+}
+function addCollider(x,z,w,d){colliders.push${x1:x-w/2,x2:x+w/2,z1:z-d/2,z2:z+d/2}$;}
+
+// トゥイーン
+const tweens=[];
+const easeIO=t=>t<.5?2*t*t:1-Math.pow$-2*t+2,2$/2;
+const easeOut=t=>1-Math.pow$1-t,3$;
+const easeBack=t=>1+2.2*Math.pow$t-1,3$+1.4*Math.pow$t-1,2$;
+function addTween$dur,fn,ease=easeIO,onEnd${tweens.push({t:0,dur,fn,ease,onEnd});}
+function updateTweens(dt){
+  for$let i=tweens.length-1;i>=0;i--${
+    const w=tweens[i];w.t+=dt;
+    const p=Math.min(w.t/w.dur,1);
+    w.fn(w.ease(p),p);
+    if$p>=1${tweens.splice(i,1);if(w.onEnd)w.onEnd();}
+  }
+}
+function toggleOpen(obj,dur,apply){
+  obj.userData.open=!obj.userData.open;
+  const from=obj.userData.k||0,to=obj.userData.open?1:0;
+  addTween$dur,k=>{const v=from+(to-from)*k;obj.userData.k=v;apply(v);}$;
+  return obj.userData.open;
+}
+
+// 音（WebAudio 極小シンセ）
+let actx=null;
+function sfx$freq,dur,type='square',vol=.09,slide=0${
+  if(!actx)return;
+  const o=actx.createOscillator(),g=actx.createGain();
+  o.type=type;o.frequency.value=freq;
+  if(slide)o.frequency.exponentialRampToValueAtTime$Math.max(40,freq+slide),actx.currentTime+dur$;
+  g.gain.value=vol;g.gain.exponentialRampToValueAtTime$.0001,actx.currentTime+dur$;
+  o.connect(g).connect(actx.destination);o.start();o.stop$actx.currentTime+dur$;
+}
+const S={
+  clickOn:()=>{sfx(1500,.035,'square',.10);setTimeout$()=>sfx(900,.05,'square',.06),22$;},
+  clickOff:()=>{sfx(1100,.04,'square',.09);setTimeout$()=>sfx(620,.06,'square',.05),24$;},
+  wood:()=>{sfx$180,.12,'triangle',.10,-60$;},
+  latch:()=>{sfx(2200,.03,'square',.08);setTimeout$()=>sfx(1300,.06,'triangle',.07),30$;},
+  cloth:()=>{sfx$320,.14,'sine',.05,-140$;},
+  put:()=>{sfx$240,.09,'triangle',.07,-90$;},
+  chime:()=>{[880,1320,1760,2640].forEach((f,i)=>setTimeout$()=>sfx(f,.5,'sine',.07),i*90$);}
+};
+
+/* =========================================================================
+   4. 部屋の躯体
+   ========================================================================= */
+const RX=2.25, RZ=1.85, RH=2.62;   // 内寸 半幅 / 半奥 / 高さ
+
+// 床
+const floor=new THREE.Mesh(new THREE.PlaneGeometry$RX*2,RZ*2$,M.floor);
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+dropSurfaces.push(floor);
+
+// 天井
+const ceil=new THREE.Mesh(new THREE.PlaneGeometry$RX*2,RZ*2$,M.ceiling);
+ceil.rotation.x=Math.PI/2;ceil.position.y=RH;ceil.receiveShadow=true;scene.add(ceil);
+
+// 壁（窓穴あり：奥 -Z）
+function wallShape(holes){
+  const s=roundedShape$RX*2,RH,0.001$;
+  // 中心が原点なので下端を0に
+  const s2=new THREE.Shape();
+  s2.moveTo$-RX,0$;s2.lineTo(RX,0);s2.lineTo(RX,RH);s2.lineTo$-RX,RH$;s2.closePath();
+  for(const h of holes){
+    const p=new THREE.Path();
+    p.moveTo(h[0],h[1]);p.lineTo(h[2],h[1]);p.lineTo(h[2],h[3]);p.lineTo(h[0],h[3]);p.closePath();
+    s2.holes.push(p);
+  }
+  return s2;
+}
+function makeWall$holes,thick=0.14${
+  const g=new THREE.ExtrudeGeometry(wallShape(holes),{depth:thick,bevelEnabled:false});
+  const m=new THREE.Mesh(g,M.wall);m.receiveShadow=true;m.castShadow=false;
+  return m;
+}
+// 窓：x -1.42..0.08 / y 0.98..2.06
+const WIN={x1:-1.42,x2:0.08,y1:0.98,y2:2.06};
+const wallBack=makeWall([[WIN.x1,WIN.y1,WIN.x2,WIN.y2]]);
+wallBack.position.set$0,0,-RZ-0.14$;scene.add(wallBack);
+// ドア：x 0.72..1.62 / y 0..2.02
+const DOOR={x1:0.72,x2:1.62,y2:2.02};
+const wallFront=makeWall([[DOOR.x1,0.001,DOOR.x2,DOOR.y2]]);
+wallFront.rotation.y=Math.PI;wallFront.position.set$0,0,RZ+0.14$;scene.add(wallFront);
+// 左右壁
+function sideWall(sign){
+  const g=new THREE.PlaneGeometry$RZ*2,RH$;
+  const m=new THREE.Mesh(g,M.wall);
+  m.position.set$sign*RX,RH/2,0$;m.rotation.y=-sign*Math.PI/2;m.receiveShadow=true;scene.add(m);
+}
+sideWall$-1$;sideWall(1);
+
+// 幅木
+function baseboard(){
+  const h=0.09,t=0.018;
+  const mk=(w,d,x,z,ry)=>{const m=box(w,h,d,M.trim,x,h/2,z,scene,false);m.rotation.y=ry||0;};
+  mk$RX*2,t,0,-RZ+t/2$;mk$RX*2,t,0,RZ-t/2$;
+  mk$t,RZ*2,-RX+t/2,0$;mk$t,RZ*2,RX-t/2,0$;
+}
+baseboard();
+// 廻り縁
+box$RX*2,0.04,0.03,M.trim,0,RH-0.02,-RZ+0.015,scene,false$;
+box$RX*2,0.04,0.03,M.trim,0,RH-0.02,RZ-0.015,scene,false$;
+
+// 窓枠・ガラス・外
+(function windowRig(){
+  const g=new THREE.Group();scene.add(g);
+  const fw=0.05, z=-RZ+0.02;
+  const w=WIN.x2-WIN.x1, h=WIN.y2-WIN.y1, cx=$WIN.x1+WIN.x2$/2, cy=$WIN.y1+WIN.y2$/2;
+  box$w+fw*2,fw,0.09,M.trim,cx,WIN.y1-fw/2,z,g,false$;
+  box$w+fw*2,fw,0.09,M.trim,cx,WIN.y2+fw/2,z,g,false$;
+  box$fw,h+fw*2,0.09,M.trim,WIN.x1-fw/2,cy,z,g,false$;
+  box$fw,h+fw*2,0.09,M.trim,WIN.x2+fw/2,cy,z,g,false$;
+  box$0.028,h,0.05,M.trim,cx,cy,z-0.01,g,false$;           // 中桟（縦）
+  box$w,0.026,0.05,M.trim,cx,cy,z-0.01,g,false$;           // 中桟（横）
+  // 窓台
+  box$w+0.16,0.035,0.16,M.trim,cx,WIN.y1-0.055,-RZ+0.07,g,false$;
+  // ガラス
+  const gl=new THREE.Mesh(new THREE.PlaneGeometry(w,h),M.glass);
+  gl.position.set$cx,cy,-RZ-0.02$;g.add(gl);
+  // 外の景色
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(7,3.6),
+    new THREE.MeshBasicMaterial({map:T.outside}));
+  out.position.set$cx,1.6,-RZ-2.8$;g.add(out);
+})();
+
+// ドア
+const doorPivot=new THREE.Group();
+doorPivot.position.set$DOOR.x1,0,RZ-0.02$;
+scene.add(doorPivot);
+(function makeDoor(){
+  const w=DOOR.x2-DOOR.x1,h=DOOR.y2;
+  const d=box(w,h,0.042,M.pale,w/2,h/2,0,doorPivot);
+  // 鏡板
+  const pm=new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.6,color:0xefe6d6});
+  box$w-0.16,h*.42,0.012,pm,w/2,h*.30,0.024,doorPivot,false$;
+  box$w-0.16,h*.34,0.012,pm,w/2,h*.72,0.024,doorPivot,false$;
+  // ノブ
+  const knob=new THREE.Group();knob.position.set$w-0.10,1.02,0.035$;doorPivot.add(knob);
+  const nk=new THREE.Mesh(new THREE.SphereGeometry(0.028,24,18),M.brass);nk.castShadow=true;knob.add(nk);
+  const st=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.013,0.04,16),M.brass);
+  st.rotation.x=Math.PI/2;st.position.z=-0.024;knob.add(st);
+  const pl=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.008,20),M.brass);
+  pl.rotation.x=Math.PI/2;pl.position.z=-0.042;knob.add(pl);
+  doorPivot.userData.k=0;
+  reg(doorPivot,{type:'door',label:'ドア'});
+})();
+
+// ラグ
+(function rug(){
+  const g=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.35,1,1),
+    new THREE.MeshStandardMaterial({map:T.rug,roughness:.98,color:0xffffff}));
+  g.rotation.x=-Math.PI/2;g.position.set(0.15,0.004,0.35);g.receiveShadow=true;scene.add(g);
+  dropSurfaces.push(g);
+  // フリンジ
+  const fr=new THREE.MeshStandardMaterial({color:0xd9cdb6,roughness:1});
+  for$let i=0;i<48;i++${
+    const f=box$0.012,0.004,0.05,fr,0.15-0.94+i*0.04,0.006,0.35-0.70,scene,false$;
+    const f2=box$0.012,0.004,0.05,fr,0.15-0.94+i*0.04,0.006,0.35+0.70,scene,false$;
+  }
+})();
+
+// ポスター
+(function poster(){
+  const g=new THREE.Group();scene.add(g);
+  const fm=new THREE.MeshStandardMaterial({map:T.darkWood,roughness:.5});
+  const w=0.44,h=0.62;
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:T.poster,roughness:.75}));
+  p.position.set$RX-0.028,1.6,-0.95$;p.rotation.y=-Math.PI/2;g.add(p);
+  const fr=box$0.02,h+0.05,w+0.05,fm,RX-0.02,1.6,-0.95,g,false$;
+})();
+
+/* =========================================================================
+   5. カーテン
+   ========================================================================= */
+const curtains=[];
+(function curtainRig(){
+  const rodY=WIN.y2+0.14, rodZ=-RZ+0.13;
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry$0.012,0.012,(WIN.x2-WIN.x1)+0.66,16$,M.metal);
+  rod.rotation.z=Math.PI/2;rod.position.set($WIN.x1+WIN.x2$/2,rodY,rodZ);
+  rod.castShadow=true;scene.add(rod);
+  [-1,1].forEach(s=>{
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.022,18,14),M.brass);
+    cap.position.set($WIN.x1+WIN.x2$/2+s*$(WIN.x2-WIN.x1)/2+0.33$,rodY,rodZ);
+    scene.add(cap);
+  });
+  // ブラケット
+  [-1,1].forEach(s=>{
+    box(0.02,0.02,0.12,M.metal,$WIN.x1+WIN.x2$/2+s*$(WIN.x2-WIN.x1)/2+0.22$,rodY,-RZ+0.07,scene,false);
+  });
+
+  const panelW=0.92, panelH=1.42;
+  for$let side=0;side<2;side++${
+    const geo=new THREE.PlaneGeometry(panelW,panelH,22,26);
+    geo.translate$0,-panelH/2,0$;
+    const mat=M.curtain.clone();
+    mat.map=T.curtain.clone();mat.map.needsUpdate=true;
+    mat.map.repeat.set(1,1);
+    mat.color.setHex(side?0xf0e6d4:0xf0e6d4);
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    const cx=side? WIN.x2-0.30 : WIN.x1+0.30;
+    mesh.position.set$cx,rodY-0.03,rodZ+0.012$;
+    scene.add(mesh);
+    // リング
+    for$let i=0;i<6;i++${
+      const r=new THREE.Mesh(new THREE.TorusGeometry(0.019,0.005,10,20),M.brass);
+      r.position.set$cx-panelW/2+0.08+i*(panelW-0.16)/5,rodY,rodZ$;
+      r.rotation.y=Math.PI/2;scene.add(r);
+    }
+    const base=geo.attributes.position.array.slice();
+    curtains.push${mesh,geo,base,phase:side*2.1,w:panelW,h:panelH}$;
+    reg(mesh,{type:'curtain',label:'カーテン'});
+  }
+})();
+
+function updateCurtains(t){
+  for(const c of curtains){
+    const p=c.geo.attributes.position, a=p.array, b=c.base;
+    for$let i=0;i<a.length;i+=3${
+      const x=b[i], y=b[i+1];
+      const hang=Math.min$1,(-y)/c.h*1.15+0.05$;         // 上は固定、下ほど揺れる
+      const fold=Math.sin$x*20.5$*0.016;                  // 常設のドレープ
+      const w1=Math.sin$x*7.4+t*0.85+c.phase$*0.030;
+      const w2=Math.sin$x*13.1-t*1.42+c.phase*1.7$*0.017;
+      const w3=Math.sin$y*4.2+t*0.55$*0.009;
+      const gust=$Math.sin(t*0.31+c.phase)*0.5+0.5$**2;   // 不規則な風のうねり
+      a[i]  = x + Math.sin$x*9.0+t*0.7$*0.006*hang;
+      a[i+1]= y + Math.cos$x*11.0+t*0.6$*0.004*hang;
+      a[i+2]= fold + $w1+w2+w3$*hang*$0.45+0.9*gust$;
+    }
+    p.needsUpdate=true;
+    c.geo.computeVertexNormals();
+  }
+}
+
+/* =========================================================================
+   6. 机・引き出し・小物
+   ========================================================================= */
+const DESK={x:-0.92,z:-RZ+0.36,w:1.56,d:0.64,h:0.745};
+const desk=new THREE.Group();desk.position.set(DESK.x,0,DESK.z);scene.add(desk);
+let drawerGrp,paperMesh;
+(function buildDesk(){
+  const topT=0.042;
+  const top=box$DESK.w,topT,DESK.d,M.desk,0,DESK.h-topT/2,0,desk$;
+  top.material=new THREE.MeshPhysicalMaterial({map:T.deskWood,roughness:.34,clearcoat:.55,clearcoatRoughness:.22,envMapIntensity:.6});
+  dropSurfaces.push(top);
+  // 天板の縁（面取り表現）
+  box$DESK.w,0.012,DESK.d+0.006,M.deskDark,0,DESK.h-topT-0.004,0,desk,false$;
+  // 幕板
+  box$DESK.w-0.12,0.09,0.02,M.deskDark,0,DESK.h-0.13,-DESK.d/2+0.05,desk$;
+  // 脚
+  const legM=M.deskDark;
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const lg=box$0.055,DESK.h-topT,0.055,legM,sx*(DESK.w/2-0.07),(DESK.h-topT)/2,sz*(DESK.d/2-0.07),desk$;
+    const cap=box$0.062,0.012,0.062,M.plasticDark,sx*(DESK.w/2-0.07),0.006,sz*(DESK.d/2-0.07),desk,false$;
+  });
+  // 引き出し箱（右側）
+  const dw=0.56,dh=0.145,dd=0.50;
+  const cx=DESK.w/2-dw/2-0.05;
+  const shell=new THREE.Group();shell.position.set$cx,DESK.h-topT-dh/2-0.03,0$;desk.add(shell);
+  box$0.014,dh+0.03,dd,M.deskDark,-dw/2,0,0,shell,false$;
+  box$0.014,dh+0.03,dd,M.deskDark,dw/2,0,0,shell,false$;
+  box$dw,0.012,dd,M.deskDark,0,-dh/2-0.014,0,shell,false$;
+  box$dw,0.012,0.02,M.deskDark,0,dh/2+0.014,-dd/2+0.01,shell,false$;
+
+  drawerGrp=new THREE.Group();
+  drawerGrp.position.set$cx,DESK.h-topT-dh/2-0.03,0$;
+  desk.add(drawerGrp);
+  const front=box$dw-0.02,dh,0.02,M.desk,0,0,dd/2-0.01,drawerGrp$;
+  front.material=new THREE.MeshPhysicalMaterial({map:T.deskWood,roughness:.36,clearcoat:.5,clearcoatRoughness:.2});
+  // 取っ手
+  const handle=new THREE.Group();handle.position.set$0,0,dd/2+0.005$;drawerGrp.add(handle);
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.20,14),M.brass);
+  bar.rotation.z=Math.PI/2;bar.position.z=0.032;bar.castShadow=true;handle.add(bar);
+  [-1,1].forEach(s=>{
+    const st=new THREE.Mesh(new THREE.CylinderGeometry(0.007,0.007,0.032,12),M.brass);
+    st.rotation.x=Math.PI/2;st.position.set$s*0.09,0,0.016$;handle.add(st);
+  });
+  // 引き出し内部
+  const inner=new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.72,side:THREE.DoubleSide});
+  box$dw-0.04,0.01,dd-0.04,inner,0,-dh/2+0.006,0,drawerGrp,false$;
+  box$0.01,dh-0.02,dd-0.04,inner,-(dw-0.04)/2,0,0,drawerGrp,false$;
+  box$0.01,dh-0.02,dd-0.04,inner,(dw-0.04)/2,0,0,drawerGrp,false$;
+  box$dw-0.04,dh-0.02,0.01,inner,0,0,-(dd-0.04)/2,drawerGrp,false$;
+
+  // 中の印刷物
+  paperMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.21,0.297),
+    new THREE.MeshStandardMaterial({map:T.paper,roughness:.92,side:THREE.DoubleSide}));
+  paperMesh.rotation.x=-Math.PI/2;
+  paperMesh.rotation.z=0.06;
+  paperMesh.position.set$-0.02,-dh/2+0.014,0.02$;
+  paperMesh.receiveShadow=true;drawerGrp.add(paperMesh);
+  reg(paperMesh,{type:'paper',label:'印刷された紙を読む'});
+  // ついでのペン・鍵
+  const pen=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.005,0.14,12),M.plasticDark);
+  pen.rotation.set(0,0,Math.PI/2);pen.position.set$0.12,-dh/2+0.012,-0.12$;drawerGrp.add(pen);
+  const key=new THREE.Mesh(new THREE.TorusGeometry(0.016,0.003,8,18),M.brass);
+  key.rotation.x=Math.PI/2;key.position.set$0.18,-dh/2+0.012,0.14$;drawerGrp.add(key);
+
+  drawerGrp.userData.k=0;
+  reg(front,{type:'drawer',label:'引き出し'});
+  reg(handle,{type:'drawer',label:'引き出し'});
+  addCollider(DESK.x,DESK.z,DESK.w,DESK.d);
+})();
+
+/* --- 本 --- */
+const BOOKS=[
+  {title:'重力の\nかたち',author:'和泉 圭',c1:'#2f4a63',c2:'#20364a',ink:'#e8dcc0',glyph:'重',band:'#c8a25a',bandText:'第 7 刷',size:52},
+  {title:'THREE\nDIMENSIONS',author:'M. Aoki',c1:'#8b3a34',c2:'#6a2724',ink:'#f2e4cd',glyph:'3',band:null,size:42},
+  {title:'夜の\n図書館',author:'霧島 十三',c1:'#25352c',c2:'#16221c',ink:'#d8cba6',glyph:'夜',band:'#a8b08a',bandText:'解説付',size:54},
+  {title:'ACRYLIC\nDREAMS',author:'K. Sano',c1:'#cfd8e2',c2:'#a9b6c6',ink:'#2c3742',glyph:'★',band:null,size:44},
+  {title:'積読の\n哲学',author:'不明',c1:'#6a5a86',c2:'#4a3d63',ink:'#efe6f4',glyph:'積',band:'#e0d0a0',bandText:'重版出来',size:54}
+];
+function makeBook$spec,w=0.152,h=0.035,d=0.216${
+  const cover=tex(coverCanvas(spec),1,1);
+  const back=tex(coverCanvas({...spec,glyph:'',title:'',author:'',band:null}),1,1);
+  const spine=tex(spineCanvas(spec),1,1);
+  const pg=T.pages.clone();pg.needsUpdate=true;
+  const mk=t=>new THREE.MeshStandardMaterial({map:t,roughness:.62,metalness:0,envMapIntensity:.4});
+  const pmat=new THREE.MeshStandardMaterial({map:pg,roughness:.86});
+  const mats=[pmat,mk(spine),mk(cover),mk(back),pmat,pmat]; // +x,-x,+y,-y,+z,-z
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mats);
+  m.castShadow=true;m.receiveShadow=true;
+  m.userData.pickBottom=h/2;
+  return m;
+}
+const props=[];
+function makePickable(obj,label){
+  obj.userData.pickable=true;
+  reg(obj,{type:'pick',label:label||'手に取る',root:obj});
+  props.push(obj);
+  return obj;
+}
+// 机上の積み本
+let yy=DESK.h+0.0;
+const stack=[0,1,2];
+stack.forEach((bi,i)=>{
+  const b=makeBook(BOOKS[bi]);
+  b.position.set$DESK.x-0.55+ (i*0.012), yy+0.0175+i*0.036, DESK.z-0.02+i*0.008$;
+  b.rotation.y=-0.12+i*0.07;
+  scene.add(b);makePickable(b,'本『'+BOOKS[bi].title.replace$'\n',''$+'』');
+});
+// 立てかけた本
+{
+  const b=makeBook(BOOKS[3],0.15,0.032,0.212);
+  b.position.set$DESK.x+0.40,DESK.h+0.104,DESK.z-0.20$;
+  b.rotation.set$Math.PI/2-0.16,0.24,0$;
+  scene.add(b);makePickable(b,'本『ACRYLIC DREAMS』');
+}
+// 床の本
+{
+  const b=makeBook(BOOKS[4]);
+  b.position.set$-0.05,0.0175,0.72$;b.rotation.y=0.8;
+  scene.add(b);makePickable(b,'本『積読の哲学』');
+}
+
+/* --- スマホ --- */
+const phone=new THREE.Group();
+(function(){
+  const w=0.072,h=0.148,d=0.0092;
+  const body=new THREE.Mesh(roundedBoxGeo(w,h,d,0.013),M.plasticDark);
+  body.castShadow=true;body.receiveShadow=true;phone.add(body);
+  const rim=new THREE.Mesh(roundedBoxGeo$w+0.001,h+0.001,d*0.55,0.013$,
+    new THREE.MeshStandardMaterial({color:0x8d9096,roughness:.24,metalness:1,envMapIntensity:1.2}));
+  phone.add(rim);
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry$w-0.007,h-0.010$,
+    new THREE.MeshStandardMaterial({map:T.phone,emissive:0xffffff,emissiveMap:T.phone,
+      emissiveIntensity:.55,roughness:.06,metalness:0}));
+  scr.position.z=d/2+0.0006;phone.add(scr);
+  // カメラ島
+  const isl=new THREE.Mesh(roundedBoxGeo(0.026,0.026,0.003,0.008),M.plasticDark);
+  isl.position.set$-w/2+0.021,h/2-0.021,-d/2-0.0012$;phone.add(isl);
+  [[0,0.006],[0,-0.006]].forEach(([ox,oy])=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.0055,0.0055,0.0026,18),
+      new THREE.MeshPhysicalMaterial({color:0x0a0c10,roughness:.05,metalness:.2,clearcoat:1}));
+    l.rotation.x=Math.PI/2;l.position.set$-w/2+0.021+ox,h/2-0.021+oy,-d/2-0.003$;phone.add(l);
+  });
+  // 側面ボタン
+  const bm=new THREE.MeshStandardMaterial({color:0x9aa0a6,roughness:.3,metalness:1});
+  box$0.0035,0.022,d*0.6,bm,w/2+0.0006,0.03,0,phone,false$;
+  box$0.0035,0.034,d*0.6,bm,-w/2-0.0006,0.026,0,phone,false$;
+  phone.position.set$DESK.x+0.10,DESK.h+0.006,DESK.z+0.14$;
+  phone.rotation.set$-Math.PI/2,0,0.42$;
+  phone.userData.pickBottom=0.006;
+  scene.add(phone);makePickable(phone,'スマートフォン');
+})();
+
+/* --- マグカップ --- */
+(function mug(){
+  const g=new THREE.Group();
+  const pts=[];
+  pts.push(new THREE.Vector2(0,0));
+  pts.push(new THREE.Vector2(0.036,0));
+  pts.push(new THREE.Vector2(0.040,0.006));
+  pts.push(new THREE.Vector2(0.042,0.09));
+  pts.push(new THREE.Vector2(0.0455,0.10));
+  pts.push(new THREE.Vector2(0.0415,0.10));
+  pts.push(new THREE.Vector2(0.0375,0.012));
+  pts.push(new THREE.Vector2(0,0.010));
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts,40),
+    new THREE.MeshPhysicalMaterial({color:0xf2ece1,roughness:.18,clearcoat:.9,clearcoatRoughness:.06,side:THREE.DoubleSide}));
+  body.castShadow=true;body.receiveShadow=true;g.add(body);
+  const handle=new THREE.Mesh(new THREE.TorusGeometry$0.028,0.0075,12,28,Math.PI*1.25$,M.ceramic);
+  handle.position.set(0.042,0.055,0);handle.rotation.set$0,Math.PI/2,-0.5$;g.add(handle);
+  const coffee=new THREE.Mesh(new THREE.CircleGeometry(0.0365,32),
+    new THREE.MeshPhysicalMaterial({color:0x2a1408,roughness:.12,clearcoat:1,metalness:.1}));
+  coffee.rotation.x=-Math.PI/2;coffee.position.y=0.062;g.add(coffee);
+  g.position.set$DESK.x+0.62,DESK.h,DESK.z+0.10$;
+  g.userData.pickBottom=0;
+  scene.add(g);makePickable(g,'マグカップ');
+})();
+
+/* --- 椅子 --- */
+(function chair(){
+  const g=new THREE.Group();
+  g.position.set$DESK.x+0.06,0,DESK.z+0.62$;g.rotation.y=0.22;scene.add(g);
+  const sh=0.44,sw=0.42,sd=0.40;
+  // 座面（クッション）
+  const seat=new THREE.Mesh(roundedBoxGeo(sw,sd,0.07,0.05),
+    new THREE.MeshStandardMaterial({map:T.chairSeat,roughness:.95}));
+  seat.rotation.x=-Math.PI/2;seat.position.y=sh;seat.castShadow=true;seat.receiveShadow=true;g.add(seat);
+  dropSurfaces.push(seat);
+  // 座枠
+  box$sw+0.02,0.03,sd+0.02,M.deskDark,0,sh-0.05,0,g$;
+  // 脚
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry$0.017,0.021,sh-0.05,12$,M.deskDark);
+    l.position.set$sx*(sw/2-0.035),(sh-0.05)/2,sz*(sd/2-0.035)$;
+    l.rotation.set$sz*0.045,0,-sx*0.045$;l.castShadow=true;g.add(l);
+  });
+  // 貫
+  box$sw-0.06,0.016,0.016,M.deskDark,0,0.14,sd/2-0.035,g,false$;
+  box$sw-0.06,0.016,0.016,M.deskDark,0,0.14,-sd/2+0.035,g,false$;
+  // 背もたれ
+  const bp=new THREE.Group();bp.position.set$0,sh,-sd/2+0.03$;bp.rotation.x=0.12;g.add(bp);
+  [-1,1].forEach(s=>{
+    const st=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.018,0.46,12),M.deskDark);
+    st.position.set$s*(sw/2-0.03),0.22,0$;st.castShadow=true;bp.add(st);
+  });
+  for$let i=0;i<3;i++${
+    const b=box$sw-0.05,0.052,0.022,M.pale,0,0.16+i*0.12,0,bp$;
+    b.material=new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.5});
+  }
+  // 掛けたカーディガン風の布
+  addCollider$DESK.x+0.06,DESK.z+0.62,0.5,0.5$;
+})();
+
+/* --- デスクランプ --- */
+let deskLampOn=false, deskSpot, deskBulbMat, deskShadeMat;
+(function deskLamp(){
+  const g=new THREE.Group();
+  g.position.set$DESK.x-0.66,DESK.h,DESK.z-0.16$;scene.add(g);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.085,0.022,32),M.plasticDark);
+  base.position.y=0.011;base.castShadow=true;base.receiveShadow=true;g.add(base);
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.078,0.003,32),
+    new THREE.MeshStandardMaterial({color:0x1a1c20,roughness:.95}));
+  pad.position.y=0.001;g.add(pad);
+  // アーム（曲げチューブ）
+  const curve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0.02,0),new THREE.Vector3(0,0.20,0.01),
+    new THREE.Vector3(0.015,0.34,0.055),new THREE.Vector3(0.03,0.40,0.16),
+    new THREE.Vector3(0.035,0.385,0.235)
+  ]);
+  const arm=new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.012,12,false),M.metal);
+  arm.castShadow=true;g.add(arm);
+  // シェード
+  deskShadeMat=new THREE.MeshStandardMaterial({color:0x2f6b5e,roughness:.35,metalness:.2,side:THREE.DoubleSide,
+    emissive:0xffca86,emissiveIntensity:0});
+  const shade=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.105,0.11,32,1,true),deskShadeMat);
+  shade.position.set(0.035,0.36,0.255);shade.rotation.x=1.15;shade.castShadow=true;g.add(shade);
+  const inner=new THREE.Mesh(new THREE.CylinderGeometry(0.054,0.104,0.108,32,1,true),
+    new THREE.MeshStandardMaterial({color:0xf6efe0,roughness:.6,side:THREE.BackSide,emissive:0xffd7a0,emissiveIntensity:0}));
+  inner.position.copy(shade.position);inner.rotation.copy(shade.rotation);g.add(inner);
+  deskLampInner=inner;
+  deskBulbMat=M.bulb.clone();
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.026,20,16),deskBulbMat);
+  bulb.position.set(0.035,0.345,0.265);g.add(bulb);
+  deskSpot=new THREE.SpotLight(0xffc98a,0,3.2,0.85,0.7,2);
+  deskSpot.position.set$DESK.x-0.62,DESK.h+0.32,DESK.z+0.16$;
+  deskSpot.target.position.set$DESK.x-0.30,DESK.h,DESK.z+0.20$;
+  deskSpot.castShadow=true;deskSpot.shadow.mapSize.set(512,512);
+  deskSpot.shadow.bias=-0.002;deskSpot.shadow.normalBias=0.02;
+  scene.add(deskSpot);scene.add(deskSpot.target);
+  reg(g,{type:'desklamp',label:'デスクランプ'});
+})();
+let deskLampInner;
+
+/* =========================================================================
+   7. ゴミ箱
+   ========================================================================= */
+(function bin(){
+  const g=new THREE.Group();
+  g.position.set$DESK.x+DESK.w/2+0.20,0,DESK.z+0.06$;scene.add(g);
+  const pts=[
+    [0,0],[0.098,0],[0.106,0.014],[0.140,0.28],[0.150,0.302],
+    [0.144,0.300],[0.133,0.282],[0.100,0.020],[0,0.014]
+  ].map$p=>new THREE.Vector2(p[0],p[1])$;
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts,44),M.plasticBin);
+  body.castShadow=true;body.receiveShadow=true;g.add(body);
+  // 縦のリブ（成形品らしさ）
+  for$let i=0;i<18;i++${
+    const a=i/18*Math.PI*2;
+    const rib=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.24,0.004),M.plasticBin);
+    rib.position.set$Math.cos(a)*0.126,0.15,Math.sin(a)*0.126$;
+    rib.rotation.y=-a;rib.castShadow=false;g.add(rib);
+  }
+  // 中の紙くず（初稿）
+  for$let i=0;i<5;i++${
+    const geo=new THREE.IcosahedronGeometry$0.034+Math.random()*0.012,1$;
+    const pa=geo.attributes.position;
+    for$let v=0;v<pa.count;v++${
+      pa.setXYZ(v,pa.getX(v)*(1+$Math.random()-.5$*.45),pa.getY(v)*(1+$Math.random()-.5$*.45),pa.getZ(v)*(1+$Math.random()-.5$*.45));
+    }
+    geo.computeVertexNormals();
+    const ball=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0xf3eee2,roughness:.9,flatShading:true}));
+    ball.position.set($Math.random()-.5$*0.11,0.06+i*0.045,$Math.random()-.5$*0.11);
+    ball.rotation.set$Math.random()*3,Math.random()*3,Math.random()*3$;
+    ball.castShadow=true;ball.receiveShadow=true;g.add(ball);
+    ball.userData.pickBottom=0.03;
+  }
+  reg(body,{type:'bin',label:'ゴミ箱（初稿の墓場）'});
+  addCollider(g.position.x,g.position.z,0.3,0.3);
+})();
+
+/* =========================================================================
+   8. ベッド
+   ========================================================================= */
+const BED={x:RX-0.53, z:-0.2, w:1.02, l:2.0, frameH:0.34};
+(function bed(){
+  const g=new THREE.Group();g.position.set(BED.x,0,BED.z);scene.add(g);
+  const fm=new THREE.MeshStandardMaterial({map:T.darkWood,roughness:.5});
+  // 脚
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    box$0.07,BED.frameH,0.07,fm,sx*(BED.w/2-0.05),BED.frameH/2,sz*(BED.l/2-0.05),g$;
+  });
+  // 側板（下端を上げてベッド下の空間を確保）
+  box$0.035,0.10,BED.l,fm,-BED.w/2+0.017,BED.frameH-0.05,0,g$;
+  box$0.035,0.10,BED.l,fm, BED.w/2-0.017,BED.frameH-0.05,0,g$;
+  box$BED.w,0.10,0.035,fm,0,BED.frameH-0.05,BED.l/2-0.017,g$;
+  // ヘッドボード
+  const hb=box$BED.w+0.04,0.62,0.05,fm,0,BED.frameH+0.30,-BED.l/2-0.01,g$;
+  for$let i=0;i<5;i++$box$0.03,0.50,0.06,M.pale,-BED.w/2+0.12+i*0.20,BED.frameH+0.30,-BED.l/2-0.005,g,false$;
+  // すのこ
+  for$let i=0;i<9;i++$box$BED.w-0.06,0.014,0.09,M.pale,0,BED.frameH-0.008,-BED.l/2+0.16+i*0.21,g,false$;
+  // マットレス
+  const mat=new THREE.Mesh(roundedBoxGeo$BED.w-0.04,BED.l-0.04,0.20,0.05$,
+    new THREE.MeshStandardMaterial({color:0xf1ece1,roughness:.92}));
+  mat.rotation.x=-Math.PI/2;mat.position.y=BED.frameH+0.10;
+  mat.castShadow=true;mat.receiveShadow=true;g.add(mat);
+  // 掛け布団（少し盛り上げた板をシワ付きで）
+  const bgeo=new THREE.PlaneGeometry$BED.w-0.02,BED.l*0.72,26,40$;
+  const pa=bgeo.attributes.position;
+  for$let i=0;i<pa.count;i++${
+    const x=pa.getX(i),y=pa.getY(i);
+    const edge=1-Math.min(1,Math.abs(x)/(BED.w/2));
+    pa.setZ$i,0.035*edge+Math.sin(x*9+y*3)*0.012+Math.sin(y*7.5)*0.014*edge+Math.cos(x*17)*0.005$;
+  }
+  bgeo.computeVertexNormals();
+  const blanket=new THREE.Mesh(bgeo,new THREE.MeshStandardMaterial({map:T.blanket,roughness:.95,side:THREE.DoubleSide,color:0xffffff}));
+  blanket.rotation.x=-Math.PI/2;blanket.position.set$0,BED.frameH+0.212,BED.l*0.12$;
+  blanket.castShadow=true;blanket.receiveShadow=true;g.add(blanket);
+  dropSurfaces.push(blanket,mat);
+  // 布団の垂れ
+  const side=new THREE.Mesh(new THREE.PlaneGeometry$BED.l*0.72,0.16,24,4$,blanket.material);
+  side.rotation.y=Math.PI/2;side.position.set$-(BED.w-0.02)/2,BED.frameH+0.13,BED.l*0.12$;
+  g.add(side);
+  const side2=side.clone();side2.position.x=$BED.w-0.02$/2;g.add(side2);
+  // 枕
+  const pg=new THREE.Mesh(roundedBoxGeo(0.56,0.34,0.13,0.09),
+    new THREE.MeshStandardMaterial({map:T.pillow,roughness:.95,color:0xffffff}));
+  pg.rotation.set$-Math.PI/2+0.10,0,0.04$;pg.position.set$0.02,BED.frameH+0.27,-BED.l/2+0.28$;
+  pg.castShadow=true;pg.receiveShadow=true;g.add(pg);
+  const pg2=pg.clone();pg2.position.set$0.0,BED.frameH+0.24,-BED.l/2+0.40$;pg2.rotation.z=-0.09;g.add(pg2);
+
+  addCollider$BED.x,BED.z,BED.w+0.06,BED.l+0.06$;
+
+  // ベッド下へのトリガ
+  const trig=new THREE.Mesh(new THREE.PlaneGeometry$BED.l*0.8,0.30$,
+    new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
+  trig.rotation.y=Math.PI/2;
+  trig.position.set$BED.x-BED.w/2-0.02,0.15,BED.z$;
+  scene.add(trig);
+  reg(trig,{type:'underbed',label:'ベッドの下に潜る'});
+})();
+
+/* =========================================================================
+   9. クローゼット（扉・ハンガー・服）
+   ========================================================================= */
+const CL={x:-RX+0.33, z:0.72, w:0.62, len:1.32, h:2.06};
+const closetDoors=[];
+const hangers=[];
+let floorPileIndex=0;
+(function closet(){
+  const g=new THREE.Group();g.position.set(CL.x,0,CL.z);scene.add(g);
+  const cm=new THREE.MeshStandardMaterial({map:T.darkWood,roughness:.48,envMapIntensity:.4});
+  const im=new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.7});
+  // 外殻
+  box$CL.w,CL.h,0.024,cm,0,CL.h/2,-CL.len/2,g$;       // 側面（-z）
+  box(CL.w,CL.h,0.024,cm,0,CL.h/2, CL.len/2,g);       // 側面（+z）
+  box$0.024,CL.h,CL.len,cm,-CL.w/2,CL.h/2,0,g$;       // 背板
+  box$CL.w,0.030,CL.len,cm,0,CL.h-0.015,0,g$;         // 天板
+  box(CL.w,0.030,CL.len,im,0,0.06,0,g);               // 底板
+  box(CL.w,0.12,CL.len,cm,0,0.03,0,g,false);          // 台輪
+  box$CL.w-0.02,0.024,CL.len-0.02,im,0,1.72,0,g$;     // 棚板
+  dropSurfaces.push(...g.children.filter$c=>c.isMesh&&Math.abs(c.position.y-1.72)<0.01$);
+  // 内側の面
+  const back=new THREE.Mesh(new THREE.PlaneGeometry$CL.len-0.04,CL.h-0.2$,im);
+  back.rotation.y=Math.PI/2;back.position.set$-CL.w/2+0.014,CL.h/2,0$;back.receiveShadow=true;g.add(back);
+
+  // ハンガーレール
+  const rail=new THREE.Mesh(new THREE.CylinderGeometry$0.011,0.011,CL.len-0.06,18$,M.metal);
+  rail.rotation.x=Math.PI/2;rail.position.set(0.02,1.56,0);rail.castShadow=true;g.add(rail);
+  [-1,1].forEach(s=>{
+    const br=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.02,16),M.metal);
+    br.rotation.x=Math.PI/2;br.position.set$0.02,1.56,s*(CL.len/2-0.02)$;g.add(br);
+  });
+
+  // 扉（2枚）
+  const dw=CL.len/2-0.005, dh=CL.h-0.12;
+  [-1,1].forEach((s,idx)=>{
+    const pivot=new THREE.Group();
+    pivot.position.set$CL.w/2-0.012, 0, s*(CL.len/2-0.006)$;
+    g.add(pivot);
+    const door=box$0.028,dh,dw,cm,0,0.09+dh/2,-s*dw/2,pivot$;
+    // 鏡板
+    box$0.010,dh*0.44,dw-0.10,im,0.019,0.09+dh*0.30,-s*dw/2,pivot,false$;
+    box$0.010,dh*0.36,dw-0.10,im,0.019,0.09+dh*0.72,-s*dw/2,pivot,false$;
+    // 取っ手
+    const kn=new THREE.Mesh(new THREE.SphereGeometry(0.018,20,14),M.brass);
+    kn.position.set$0.036,1.05,-s*(dw-0.06)$;pivot.add(kn);
+    const nk=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.03,12),M.brass);
+    nk.rotation.z=Math.PI/2;nk.position.set$0.02,1.05,-s*(dw-0.06)$;pivot.add(nk);
+    pivot.userData.k=0;pivot.userData.sign=s;
+    closetDoors.push(pivot);
+    reg(pivot,{type:'closetDoor',label:'クローゼットの扉',target:pivot});
+  });
+  addCollider$CL.x,CL.z,CL.w+0.05,CL.len$;
+
+  /* --- ハンガー＋服 --- */
+  const garments=[
+    {kind:'shirt', tex:tex(stripeCanvas('#eae5da','#3f5372',26),1,1), col:0xffffff, hanger:'wood'},
+    {kind:'shirt', tex:tex(plaidCanvas(),1,1), col:0xffffff, hanger:'wire'},
+    {kind:'sweater',tex:tex(knitCanvas('#c9a86a'),1,1),col:0xffffff, hanger:'wood'},
+    {kind:'shirt', tex:tex(fabricCanvas('#3d4a5c'),1,1),col:0xffffff, hanger:'plastic'},
+    {kind:'coat',  tex:tex(fabricCanvas('#4b4038'),1,1),col:0xffffff, hanger:'wood'},
+    {kind:'shirt', tex:tex(stripeCanvas('#f0eee8','#8d3f3a',18),1,1),col:0xffffff, hanger:'wire'},
+    {kind:'sweater',tex:tex(knitCanvas('#6d8a72'),1,1),col:0xffffff, hanger:'plastic'},
+    {kind:'shirt', tex:tex(fabricCanvas('#e7e2d6'),1,1),col:0xffffff, hanger:'wood'}
+  ];
+
+  function shirtShape(kind){
+    const s=new THREE.Shape();
+    const bw = kind==='coat'?0.20:0.185;    // 身幅の半分
+    const len= kind==='coat'?0.62: $kind==='sweater'?0.46:0.50$;
+    const sh = 0.085;                        // 肩の高さ位置
+    const sl = kind==='coat'?0.20:0.17;      // 袖長さ
+    s.moveTo$-0.055,0.03$;                   // 襟左
+    s.lineTo$-0.115,0.0$;                    // 肩
+    s.lineTo$-bw,-0.045$;                    // 肩先
+    s.lineTo$-bw-sl*0.55,-0.045-sl*0.62$;    // 袖外
+    s.lineTo$-bw-sl*0.40,-0.045-sl*0.86$;    // 袖口
+    s.lineTo$-bw+0.035,-0.20$;               // 脇
+    s.lineTo$-bw+0.055,-len$;                // 裾左
+    s.lineTo$bw-0.055,-len$;                 // 裾右
+    s.lineTo$bw-0.035,-0.20$;
+    s.lineTo$bw+sl*0.40,-0.045-sl*0.86$;
+    s.lineTo$bw+sl*0.55,-0.045-sl*0.62$;
+    s.lineTo$bw,-0.045$;
+    s.lineTo(0.115,0.0);
+    s.lineTo(0.055,0.03);
+    s.quadraticCurveTo$0,0.055,-0.055,0.03$;
+    return s;
+  }
+
+  garments.forEach((spec,i)=>{
+    const hg=new THREE.Group();
+    const z=-CL.len/2+0.14+i*($CL.len-0.28$/$garments.length-1$);
+    hg.position.set(0.02,1.56,z);
+    g.add(hg);
+
+    // フック
+    const hookCurve=new THREE.CatmullRomCurve3([
+      new THREE.Vector3$0,-0.005,0$,new THREE.Vector3(0,0.028,0),
+      new THREE.Vector3(0.006,0.046,0),new THREE.Vector3(0.024,0.052,0),
+      new THREE.Vector3(0.036,0.038,0),new THREE.Vector3(0.030,0.020,0)
+    ]);
+    const hookMat = spec.hanger==='wire'?M.metal:$spec.hanger==='plastic'?M.plasticWhite:M.metal$;
+    const hook=new THREE.Mesh(new THREE.TubeGeometry(hookCurve,26,0.0035,8,false),M.metal);
+    hook.castShadow=true;hg.add(hook);
+
+    // 肩バー
+    const hm = spec.hanger==='wood'? new THREE.MeshStandardMaterial({map:T.paleWood,roughness:.45})
+             : spec.hanger==='plastic'? M.plasticWhite : M.metal;
+    const half=0.195, drop=0.062, thick= spec.hanger==='wire'?0.0035:0.011;
+    [-1,1].forEach(s=>{
+      const len=Math.hypot(half,drop);
+      const bar=new THREE.Mesh(new THREE.CylinderGeometry$thick,thick*0.9,len,spec.hanger==='wire'?8:14$,hm);
+      bar.position.set$s*half/2,-drop/2-0.006,0$;
+      bar.rotation.z=s*Math.atan2(half,drop)*-1 + $s>0?Math.PI:0$;
+      bar.rotation.z = s*$Math.PI/2 - Math.atan2(drop,half)$;
+      bar.castShadow=true;hg.add(bar);
+    });
+    const cross=new THREE.Mesh(new THREE.CylinderGeometry$thick*0.8,thick*0.8,half*2,10$,hm);
+    cross.rotation.z=Math.PI/2;cross.position.y=-drop-0.008;cross.castShadow=true;hg.add(cross);
+    if$spec.hanger!=='wire'${
+      [-1,1].forEach(s=>{
+        const tip=new THREE.Mesh(new THREE.SphereGeometry$thick*1.25,12,10$,hm);
+        tip.position.set$s*half,-drop-0.006,0$;hg.add(tip);
+      });
+    }
+
+    // 服
+    const geo=new THREE.ExtrudeGeometry(shirtShape(spec.kind),
+      {depth:0.052,bevelEnabled:true,bevelThickness:0.012,bevelSize:0.014,bevelSegments:3,curveSegments:6});
+    geo.translate$0,0,-0.026$;
+    geo.computeVertexNormals();
+    // UVを身丈に合わせる
+    const uv=geo.attributes.uv, pos=geo.attributes.position;
+    for$let v=0;v<uv.count;v++${
+      uv.setXY(v,$pos.getX(v)+0.42$/0.84*2.0,$pos.getY(v)+0.7$/0.84*2.0);
+    }
+    const gm=new THREE.MeshStandardMaterial({map:spec.tex,roughness:.95,metalness:0,color:spec.col,side:THREE.DoubleSide});
+    const cloth=new THREE.Mesh(geo,gm);
+    cloth.position.y=-drop-0.004;
+    cloth.rotation.y=$Math.random()-.5$*0.10;
+    cloth.castShadow=true;cloth.receiveShadow=true;hg.add(cloth);
+    // 襟
+    const col=new THREE.Mesh(new THREE.TorusGeometry$0.058,0.014,10,22,Math.PI*1.15$,
+      new THREE.MeshStandardMaterial({map:spec.tex,roughness:.9,color:0xf2f2f2}));
+    col.position.set$0,-drop+0.03,0$;col.rotation.set(0.35,0,Math.PI);col.castShadow=true;hg.add(col);
+    // ボタン
+    if$spec.kind==='shirt'${
+      for$let b=0;b<5;b++${
+        const bt=new THREE.Mesh(new THREE.CylinderGeometry(0.0075,0.0075,0.0022,14),
+          new THREE.MeshPhysicalMaterial({color:0xf3efe4,roughness:.25,clearcoat:.9}));
+        bt.rotation.x=Math.PI/2;
+        bt.position.set$0.002,-drop-0.09-b*0.085,0.028$;
+        hg.add(bt);
+      }
+    }
+    hg.userData.spec=spec;
+    hangers.push(hg);
+    reg(hg,{type:'hanger',label:'ハンガーごと下ろす',target:hg});
+  });
+})();
+
+// ハンガーを床に置く
+function takeDownHanger(hg){
+  if(hg.userData.down)return;
+  hg.userData.down=true;
+  const idx=floorPileIndex++;
+  const from=new THREE.Vector3();hg.getWorldPosition(from);
+  const fromQ=hg.getWorldQuaternion(new THREE.Quaternion());
+  scene.attach(hg);
+  const tx=CL.x+CL.w/2+0.42+ (idx%3)*0.05 + Math.random()*0.06;
+  const tz=CL.z-0.5+ idx*0.20;
+  const target=new THREE.Vector3(tx,0.055,Math.max$-RZ+0.5,Math.min(RZ-0.5,tz)$);
+  const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2+0.06,$Math.random()-.5$*1.4,Math.random()*0.5));
+  const p0=hg.position.clone(), q0=hg.quaternion.clone();
+  S.cloth();
+  addTween(0.85,k=>{
+    hg.position.lerpVectors(p0,target,k);
+    hg.position.y += Math.sin$k*Math.PI$*0.10;              // 少し放物線
+    hg.quaternion.slerpQuaternions(q0,q,k);
+  },easeOut,()=>{S.put();});
+  // 下ろしたものは持ち上げ可能に
+  const info={type:'pick',label:'服を手に取る',root:hg};
+  hg.traverse$m=>{if(m.isMesh)m.userData.interact=info;}$;
+  hg.userData.pickBottom=0.06;
+  hg.userData.pickable=true;
+}
+
+/* =========================================================================
+   10. ベッド下のポーチ ＋ アクリルの星
+   ========================================================================= */
+const pouch=new THREE.Group();
+let pouchFlap,pouchLatchGroup,starMesh,pouchOpened=false,latchOff=false,starTaken=false;
+(function buildPouch(){
+  const W=0.225,H=0.150,D=0.082;
+  // 本体
+  const bodyGeo=roundedBoxGeo(W,H,D,0.030,0.010);
+  const body=new THREE.Mesh(bodyGeo,M.leather);
+  body.castShadow=true;body.receiveShadow=true;pouch.add(body);
+  // 前面ポケットの段差
+  const pocket=new THREE.Mesh(roundedBoxGeo$W*0.86,H*0.62,0.012,0.022,0.004$,M.leatherDark);
+  pocket.position.set$0,-H*0.12,D/2+0.001$;pouch.add(pocket);
+  // 縁のパイピング
+  const edgePts=roundedShape(W,H,0.030).getPoints(64);
+  [-1,1].forEach(s=>{
+    const curve=new THREE.CatmullRomCurve3(edgePts.map$p=>new THREE.Vector3(p.x,p.y,s*D/2*0.94)$,true);
+    const pipe=new THREE.Mesh(new THREE.TubeGeometry(curve,120,0.0042,8,true),M.leatherDark);
+    pipe.castShadow=true;pouch.add(pipe);
+  });
+  // 内張り（開けたとき見える）
+  const lin=new THREE.Mesh(new THREE.PlaneGeometry$W*0.9,D*0.9$,M.lining);
+  lin.rotation.x=-Math.PI/2;lin.position.set$0,H/2-0.014,0$;pouch.add(lin);
+  const linBack=new THREE.Mesh(new THREE.PlaneGeometry$W*0.9,H*0.8$,M.lining);
+  linBack.position.set$0,0,-D/2+0.006$;pouch.add(linBack);
+
+  // 底の鋲
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const st=new THREE.Mesh(new THREE.CylinderGeometry(0.0065,0.0075,0.005,14),M.brass);
+    st.position.set$sx*(W/2-0.028),-H/2-0.002,sz*(D/2-0.018)$;pouch.add(st);
+  });
+  // 横のループ
+  const loop=new THREE.Mesh(new THREE.TorusGeometry$0.016,0.005,10,22,Math.PI*1.1$,M.leatherDark);
+  loop.position.set$W/2-0.004,H*0.22,0$;loop.rotation.set(Math.PI/2,0.2,0);pouch.add(loop);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.011,0.0026,10,20),M.brass);
+  ring.position.set$W/2+0.008,H*0.22,0$;ring.rotation.y=Math.PI/2;pouch.add(ring);
+
+  // フラップ（蓋）
+  pouchFlap=new THREE.Group();
+  pouchFlap.position.set$0,H/2-0.004,-D/2+0.006$;
+  pouch.add(pouchFlap);
+  const topPanel=new THREE.Mesh(roundedBoxGeo$W*0.965,D+0.006,0.011,0.016,0.003$,M.leather);
+  topPanel.rotation.x=-Math.PI/2;
+  topPanel.position.set(0,0.004,$D+0.006$/2);
+  topPanel.castShadow=true;pouchFlap.add(topPanel);
+  const lip=new THREE.Mesh(roundedBoxGeo$W*0.965,0.062,0.011,0.016,0.003$,M.leather);
+  lip.position.set$0,-0.030,D+0.008$;
+  lip.castShadow=true;pouchFlap.add(lip);
+  // フラップの縁パイピング
+  const lipEdge=new THREE.CatmullRomCurve3(
+    roundedShape$W*0.965,0.062,0.016$.getPoints(48).map$p=>new THREE.Vector3(p.x,p.y-0.030,D+0.014)$,true);
+  const lipPipe=new THREE.Mesh(new THREE.TubeGeometry(lipEdge,90,0.0034,8,true),M.leatherDark);
+  pouchFlap.add(lipPipe);
+
+  // 留め金（ストラップ＋ブラス）
+  pouchLatchGroup=new THREE.Group();
+  pouchLatchGroup.position.set$0,-0.058,D+0.012$;
+  pouchFlap.add(pouchLatchGroup);
+  const strap=new THREE.Mesh(roundedBoxGeo(0.034,0.052,0.008,0.008,0.002),M.leatherDark);
+  strap.position.set$0,-0.012,0$;strap.castShadow=true;pouchLatchGroup.add(strap);
+  const buckle=new THREE.Mesh(new THREE.TorusGeometry(0.0135,0.0035,10,4),M.brass);
+  buckle.rotation.set(Math.PI/2,0,Math.PI/4);
+  buckle.position.set$0,-0.030,0.004$;pouchLatchGroup.add(buckle);
+  const tongue=new THREE.Mesh(new THREE.CylinderGeometry(0.0018,0.0018,0.026,8),M.brass);
+  tongue.rotation.z=Math.PI/2;tongue.position.set$0,-0.030,0.004$;pouchLatchGroup.add(tongue);
+  const plate=new THREE.Mesh(roundedBoxGeo(0.030,0.020,0.006,0.005,0.0015),M.brass);
+  plate.position.set$0,-0.048,0.002$;pouchLatchGroup.add(plate);
+  // 本体側の受け金具
+  const catchM=new THREE.Mesh(roundedBoxGeo(0.026,0.018,0.006,0.005,0.0015),M.brass);
+  catchM.position.set$0,-H*0.30,D/2+0.010$;pouch.add(catchM);
+
+  // 中のアクリル・スター
+  const starShape=(()=>{
+    const s=new THREE.Shape();const R=0.062,r=0.026,N=5;
+    for$let i=0;i<N*2;i++${
+      const a=-Math.PI/2+i*Math.PI/N;
+      const rad=i%2?r:R;
+      const px=Math.cos(a)*rad,py=Math.sin(a)*rad;
+      i?s.lineTo(px,py):s.moveTo(px,py);
+    }
+    s.closePath();return s;
+  })();
+  const starGeo=new THREE.ExtrudeGeometry(starShape,
+    {depth:0.011,bevelEnabled:true,bevelThickness:0.0035,bevelSize:0.0035,bevelSegments:2,curveSegments:4});
+  starGeo.center();starGeo.computeVertexNormals();
+  starMesh=new THREE.Mesh(starGeo,M.acrylic);
+  starMesh.position.set$0,-0.012,0.004$;
+  starMesh.rotation.set(0.2,0.3,0.1);
+  starMesh.castShadow=false;
+  pouch.add(starMesh);
+  // 星の穴（ストラップ穴）
+  const hole=new THREE.Mesh(new THREE.TorusGeometry(0.0055,0.0016,8,18),
+    new THREE.MeshPhysicalMaterial({color:0xdff2ff,roughness:.08,transmission:.9,thickness:.004,ior:1.49,transparent:true}));
+  hole.position.set(0,0.044,0);starMesh.add(hole);
+
+  pouch.position.set$BED.x+0.10,H/2+0.004,BED.z+0.28$;
+  pouch.rotation.y=-0.5;
+  scene.add(pouch);
+
+  reg(body,{type:'pouch',label:'茶色いポーチを手に取る'});
+  reg(pocket,{type:'pouch',label:'茶色いポーチを手に取る'});
+  pouchFlap.traverse(m=>{if(m.isMesh)m.userData.interact={type:'clasp',label:'留め金を外す'};});
+})();
+
+// ベッド下の埃（雰囲気）
+for$let i=0;i<14;i++${
+  const d=new THREE.Mesh(new THREE.SphereGeometry$0.008+Math.random()*0.012,8,6$,
+    new THREE.MeshStandardMaterial({color:0x9d9384,roughness:1}));
+  d.position.set$BED.x-0.3+Math.random()*0.8,0.008,BED.z-0.8+Math.random()*1.6$;
+  d.scale.y=0.4;scene.add(d);
+}
+
+/* =========================================================================
+   11. 照明とスイッチ
+   ========================================================================= */
+const amb=new THREE.AmbientLight(0x2b3550,0.55);scene.add(amb);
+const hemi=new THREE.HemisphereLight(0x4c5c7e,0x2a2320,0.30);scene.add(hemi);
+const warmAmb=new THREE.AmbientLight(0xffb070,0.0);scene.add(warmAmb);
+
+// 窓からの光（夕暮れ〜夜の街明かり）
+const sun=new THREE.DirectionalLight(0x9fbbe8,0.85);
+sun.position.set$-1.6,3.4,-6.5$;
+sun.target.position.set$-0.4,0.6,0.6$;
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-3.2;sun.shadow.camera.right=3.2;
+sun.shadow.camera.top=3.4;sun.shadow.camera.bottom=-1.2;
+sun.shadow.camera.near=0.5;sun.shadow.camera.far=14;
+sun.shadow.bias=-0.0012;sun.shadow.normalBias=0.022;
+scene.add(sun,sun.target);
+
+// 天井照明
+const ceilLight=new THREE.PointLight(0xffd2a1,0,9,2);
+ceilLight.position.set$0.1,RH-0.30,0.05$;
+ceilLight.castShadow=true;
+ceilLight.shadow.mapSize.set(1024,1
